@@ -1,0 +1,16 @@
+name = "karaoke-request"
+compatibility_date = "2025-12-12"
+compatibility_flags = ["nodejs_als"]
+main = ".svelte-kit/cloudflare/_worker.js"
+
+[assets]
+binding = "ASSETS"
+directory = ".svelte-kit/cloudflare"
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "karaoke-request"
+database_id = "66546591-8531-42f5-9e62-f873e9cf9a14"

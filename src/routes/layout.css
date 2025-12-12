@@ -1,3 +1,22 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@layer base {
+	* {
+		@apply border-gray-400;
+	}
+	body {
+		@apply bg-gray-950 text-gray-100;
+		font-feature-settings:
+			'rlig' 1,
+			'calt' 1;
+	}
+}
+
+@layer base {
+	button:not(:disabled),
+	[role='button']:not(:disabled) {
+		cursor: pointer;
+	}
+}
