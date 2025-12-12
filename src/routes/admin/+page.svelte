@@ -11,6 +11,9 @@
 	const statusOptions = ['upcoming', 'active', 'complete', 'cancelled'];
 </script>
 
+<svelte:head>
+	<title>Karaoke Admin</title>
+</svelte:head>
 <div class="min-h-dvh p-4">
 	<div class="mx-auto max-w-4xl">
 		<header class="mb-6 flex items-center justify-between">
@@ -52,6 +55,16 @@
 						<div class="flex items-center gap-2">
 							<span class="font-medium">{event.name}</span>
 							<EventStatus {event} />
+							{#if event.pendingCount + event.doneCount > 0}
+								<div class="flex gap-px rounded-full text-xs">
+									<div class="rounded-l-full bg-emerald-600 px-2 py-1">
+										{event.pendingCount}
+									</div>
+									<div class="rounded-r-full bg-gray-500 px-2 py-1">
+										{event.doneCount}
+									</div>
+								</div>
+							{/if}
 						</div>
 						<div class="mt-1 text-sm text-gray-500">
 							{event.eventDate} · <code class="text-gray-400">{event.code}</code>

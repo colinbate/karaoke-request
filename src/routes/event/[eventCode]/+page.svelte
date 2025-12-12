@@ -55,6 +55,9 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{data.eventName}</title>
+</svelte:head>
 <div
 	class={['mx-auto flex h-dvh max-w-5xl flex-col', !data.isActive && 'items-center justify-center']}
 >

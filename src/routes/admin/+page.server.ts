@@ -1,13 +1,36 @@
 import type { PageServerLoad, Actions } from './$types';
 import { fail } from '@sveltejs/kit';
-import { events } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { events, requests } from '$lib/server/db/schema';
+import { eq, desc, sql } from 'drizzle-orm';
 import { randomid } from '$lib/random';
+import { isEventStatus } from '$lib/statuses';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const allEvents = await locals.db.select().from(events).orderBy(desc(events.createdAt)).all();
+	const doneCount = sql<number>`
+    COALESCE(SUM(CASE WHEN ${requests.status} = 'done' THEN 1 ELSE 0 END), 0)
+  `.as('doneCount');
 
-	return { events: allEvents };
+	const pendingCount = sql<number>`
+    COALESCE(SUM(CASE WHEN ${requests.status} = 'pending' THEN 1 ELSE 0 END), 0)
+  `.as('pendingCount');
+
+	const rows = await locals.db
+		.select({
+			id: events.id,
+			code: events.code,
+			name: events.name,
+			status: events.status,
+			eventDate: events.eventDate,
+			createdAt: events.createdAt,
+			doneCount,
+			pendingCount,
+		})
+		.from(events)
+		.leftJoin(requests, eq(requests.eventCode, events.code))
+		.groupBy(events.id, events.code, events.name, events.status, events.eventDate, events.createdAt)
+		.orderBy(desc(events.eventDate));
+
+	return { events: rows };
 };
 
 export const actions = {
@@ -36,7 +59,7 @@ export const actions = {
 		const code = formData.get('code') as string;
 		const status = formData.get('status') as string;
 
-		if (!code || !status) {
+		if (!code || !status || !isEventStatus(status)) {
 			return fail(400, { error: 'Missing fields' });
 		}
 

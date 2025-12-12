@@ -1,11 +1,15 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import type { EventStatus } from '$lib/statuses';
 
 export const events = sqliteTable('events', {
 	id: integer('id').primaryKey(),
 	code: text('code').notNull().unique(),
 	name: text('name').notNull(),
-	status: text('status').notNull().default('upcoming'),
+	status: text('status')
+		.notNull()
+		.default('upcoming')
+		.$type<EventStatus>(),
 	eventDate: text('event_date')
 		.notNull()
 		.default(sql`(date('now')`),
@@ -20,7 +24,7 @@ export const requests = sqliteTable('requests', {
 	name: text('name').notNull(),
 	title: text('title').notNull(),
 	artist: text('artist').notNull(),
-	status: text('status').notNull().default('pending'),
+	status: text('status').notNull().default('pending').$type<'pending' | 'done'>(),
 	eventCode: text('event_code')
 		.notNull()
 		.references(() => events.code),

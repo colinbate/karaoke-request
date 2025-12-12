@@ -24,6 +24,9 @@
 	let [pending, done] = $derived(partition(data.eventRequests, (x) => x.status === 'pending'));
 </script>
 
+<svelte:head>
+	<title>{data.eventinfo.name} - Request Queue</title>
+</svelte:head>
 <div class="flex min-h-dvh flex-col">
 	<!-- Header -->
 	<header class="border-b border-gray-800 px-4 py-3">
