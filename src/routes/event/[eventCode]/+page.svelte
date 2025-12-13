@@ -14,6 +14,7 @@
 	let styles: string[] = $state.raw([]);
 	let songs: Song[] = $state.raw([]);
 	let loading = $state(true);
+	let ffield: HTMLInputElement | undefined;
 
 	// Filter songs based on search and style
 	let filtered = $derived.by(() => {
@@ -36,7 +37,7 @@
 	// Pagination
 	let page = $state(0);
 	let rowHeight = 61;
-	let headerHeight = 200;
+	let headerHeight = 201;
 
 	let pageSize = $derived(
 		Math.max(5, Math.floor(((innerHeight.current ?? 600) - headerHeight) / rowHeight))
@@ -113,7 +114,7 @@
 						data-1p-ignore
 						bind:value={userName}
 						placeholder="Your name"
-						class="w-32 rounded bg-gray-800 px-2 py-1 text-sm placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+						class="w-32 rounded bg-gray-800 px-2 py-1 text-base placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
 					/>
 					{#if form?.error && !userName}
 						<div class="absolute top-full right-6 w-max rounded bg-rose-600 px-2 py-1">
@@ -126,12 +127,36 @@
 
 		<!-- Search and filters -->
 		<div class="space-y-2 border-b border-gray-800 px-4 py-3">
-			<input
-				type="search"
-				bind:value={search}
-				placeholder="Search by title or artist..."
-				class="w-full rounded bg-gray-800 px-3 py-2 placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
-			/>
+			<div class="relative">
+				<input
+					bind:this={ffield}
+					type="search"
+					bind:value={search}
+					placeholder="Search by title or artist..."
+					class="w-full rounded bg-gray-800 py-2 pr-12 pl-3 placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+				/>
+				{#if search}
+					<button
+						aria-label="Clear text"
+						onclick={() => ((search = ''), ffield?.focus())}
+						class="absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+						><svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+							stroke="currentColor"
+							class="size-6"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+							/>
+						</svg>
+					</button>
+				{/if}
+			</div>
 			<div class="flex items-center gap-2">
 				<select
 					bind:value={selectedStyle}
