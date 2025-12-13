@@ -4,16 +4,20 @@
 	import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
 
 	let { data, form }: PageProps = $props();
 
 	let search = $state('');
 	let selectedStyle = $state('');
 	let userName = $state('');
+	let styles: string[] = $state([]);
+	let songs: Song[] = $state([]);
+	let loading = $state(true);
 
 	// Filter songs based on search and style
 	let filtered = $derived.by(() => {
-		let results = data.songs;
+		let results = songs;
 
 		if (selectedStyle) {
 			results = results.filter((s) => s[S.STYLES].includes(selectedStyle));
@@ -48,6 +52,17 @@
 		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		selectedStyle;
 		page = 0;
+	});
+
+	onMount(() => {
+		fetch('/songs.json')
+			.then((r) => r.json<Song[]>())
+			.catch((err) => (console.error(err), []))
+			.then((arr) => ((songs = arr), (loading = false)));
+		fetch('/styles.json')
+			.then((r) => r.json<string[]>())
+			.catch((err) => (console.error(err), []))
+			.then((arr) => (styles = arr));
 	});
 
 	function songKey(song: Song) {
@@ -123,7 +138,7 @@
 					class="rounded bg-gray-800 px-2 py-1 text-sm focus:ring-1 focus:ring-purple-500 focus:outline-none"
 				>
 					<option value="">All styles</option>
-					{#each data.styles as style (style)}
+					{#each styles as style (style)}
 						<option value={style}>{style}</option>
 					{/each}
 				</select>
@@ -137,47 +152,61 @@
 		<form method="POST" use:enhance>
 			<input type="hidden" name="name" value={userName} />
 			<div class="min-h-0 flex-1 overflow-y-auto">
-				{#each pageItems as song (song)}
-					{@const key = songKey(song)}
-					{@const alreadyRequested = data.requests.some(
-						(r) => r.title === song[S.TITLE] && r.artist === song[S.ARTIST]
-					)}
-					<div class="flex items-center border-b border-gray-800/50 px-4 py-2">
-						<div class="min-w-0 flex-1">
-							<div class="truncate font-medium">
-								{song[S.TITLE]}
-								{#if song[S.EXPLICIT]}
-									<span class="ml-1 text-xs text-red-400">E</span>
-								{/if}
-								{#if song[S.DUO]}
-									<span class="ml-1 text-xs text-blue-400">Duet</span>
-								{/if}
-							</div>
-							<div class="truncate text-sm text-gray-400">
-								{song[S.ARTIST]}
-								{#if song[S.YEAR]}
-									<span class="text-gray-600">· {song[S.YEAR]}</span>
-								{/if}
-							</div>
-						</div>
-						{#if !data.readonly}
-							{#if alreadyRequested}
-								<span class="ml-2 shrink-0 rounded bg-gray-700 px-3 py-1 text-sm text-gray-400">
-									Requested
-								</span>
-							{:else}
-								<button
-									type="submit"
-									name="song"
-									value={key}
-									class="ml-2 shrink-0 rounded bg-purple-600 px-3 py-1 text-sm font-medium hover:bg-purple-500"
-								>
-									Request
-								</button>
-							{/if}
-						{/if}
+				{#if loading}
+					<div class="flex h-48 items-center justify-center text-purple-300">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 640 640"
+							class="size-10 animate-bounce"
+							fill="currentColor"
+							><path
+								d="M499.7 70.8C507.5 76.8 512 86.1 512 96L512 192C512 206.7 502 219.5 487.8 223L384 249L384 464C384 517 333.9 560 272 560C210.1 560 160 517 160 464C160 411 210.1 368 272 368C289.2 368 305.5 371.3 320 377.2L320 128C320 113.3 330 100.5 344.2 97L472.2 65C481.8 62.6 491.9 64.8 499.7 70.8z"
+							/></svg
+						>
 					</div>
-				{/each}
+				{:else}
+					{#each pageItems as song (song)}
+						{@const key = songKey(song)}
+						{@const alreadyRequested = data.requests.some(
+							(r) => r.title === song[S.TITLE] && r.artist === song[S.ARTIST]
+						)}
+						<div class="flex items-center border-b border-gray-800/50 px-4 py-2">
+							<div class="min-w-0 flex-1">
+								<div class="truncate font-medium">
+									{song[S.TITLE]}
+									{#if song[S.EXPLICIT]}
+										<span class="ml-1 text-xs text-red-400">E</span>
+									{/if}
+									{#if song[S.DUO]}
+										<span class="ml-1 text-xs text-blue-400">Duet</span>
+									{/if}
+								</div>
+								<div class="truncate text-sm text-gray-400">
+									{song[S.ARTIST]}
+									{#if song[S.YEAR]}
+										<span class="text-gray-600">· {song[S.YEAR]}</span>
+									{/if}
+								</div>
+							</div>
+							{#if !data.readonly}
+								{#if alreadyRequested}
+									<span class="ml-2 shrink-0 rounded bg-gray-700 px-3 py-1 text-sm text-gray-400">
+										Requested
+									</span>
+								{:else}
+									<button
+										type="submit"
+										name="song"
+										value={key}
+										class="ml-2 shrink-0 rounded bg-purple-600 px-3 py-1 text-sm font-medium hover:bg-purple-500"
+									>
+										Request
+									</button>
+								{/if}
+							{/if}
+						</div>
+					{/each}
+				{/if}
 			</div>
 		</form>
 
