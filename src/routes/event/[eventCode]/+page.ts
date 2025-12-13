@@ -12,13 +12,13 @@ export const load: PageLoad = async ({ fetch, data }) => {
 			eventName: data.eventName,
 			readonly: true,
 		};
-	const [songs, styles] = await Promise.all([
-		fetch('/songs.json')
-			.then((r) => r.json())
-			.catch((err) => (console.error(err), [])) as Promise<Song[]>,
+	const [styles, songs] = await Promise.all([
 		fetch('/styles.json')
 			.then((r) => r.json())
 			.catch((err) => (console.error(err), [])) as Promise<string[]>,
+		fetch('/songs.json')
+			.then((r) => r.json())
+			.catch((err) => (console.error(err), [])) as Promise<Song[]>,
 	]);
 
 	return {
