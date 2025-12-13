@@ -11,8 +11,8 @@
 	let search = $state('');
 	let selectedStyle = $state('');
 	let userName = $state('');
-	let styles: string[] = $state([]);
-	let songs: Song[] = $state([]);
+	let styles: string[] = $state.raw([]);
+	let songs: Song[] = $state.raw([]);
 	let loading = $state(true);
 
 	// Filter songs based on search and style
