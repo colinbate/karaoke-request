@@ -6,10 +6,7 @@ export const events = sqliteTable('events', {
 	id: integer('id').primaryKey(),
 	code: text('code').notNull().unique(),
 	name: text('name').notNull(),
-	status: text('status')
-		.notNull()
-		.default('upcoming')
-		.$type<EventStatus>(),
+	status: text('status').notNull().default('upcoming').$type<EventStatus>(),
 	eventDate: text('event_date')
 		.notNull()
 		.default(sql`(date('now')`),
@@ -29,6 +26,9 @@ export const requests = sqliteTable('requests', {
 		.notNull()
 		.references(() => events.code),
 	createdAt: text('created_at')
+		.notNull()
+		.default(sql`(strftime('%FT%H:%M:%fZ', 'now'))`),
+	updatedAt: text('updated_at')
 		.notNull()
 		.default(sql`(strftime('%FT%H:%M:%fZ', 'now'))`),
 });

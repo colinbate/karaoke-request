@@ -17,7 +17,6 @@ export const load: PageServerLoad = async ({ locals, cookies, params }) => {
 	if (!sessionId) {
 		sessionId = getId();
 		cookies.set(SESSION_KEY, sessionId, { path: '/' });
-		return { requests: [] };
 	}
 	const [eventinfo, myrequests] = await locals.db.batch([
 		locals.db.select().from(events).where(eq(events.code, eventCode)),

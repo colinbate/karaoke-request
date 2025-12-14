@@ -2,6 +2,12 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
+:root {
+	color-scheme: dark;
+	scrollbar-color: var(--color-purple-600) rgba(0, 0, 0, 0);
+	scrollbar-width: thin;
+}
+
 @layer base {
 	* {
 		@apply border-gray-400;
