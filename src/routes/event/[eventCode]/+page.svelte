@@ -18,6 +18,7 @@
 	let loading = $state(true);
 	// svelte-ignore non_reactive_update
 	let ffield: HTMLInputElement | undefined;
+	let requestsDialog: HTMLDialogElement;
 
 	// Filter songs based on search and style
 	let filtered = $derived.by(() => {
@@ -94,6 +95,19 @@
 			window.localStorage.setItem(STORED_NAME_KEY, userName);
 		}
 	}
+
+	function openRequestsDialog() {
+		requestsDialog.showModal();
+	}
+
+	function closeRequestsDialog() {
+		requestsDialog.close();
+	}
+
+	function formatTime(dateStr: string) {
+		const date = new Date(dateStr);
+		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	}
 </script>
 
 <svelte:head>
@@ -133,9 +147,13 @@
 			{:else}
 				<div class="relative ml-auto flex items-center gap-2">
 					{#if data.requests.length > 0}
-						<span class="rounded-full bg-purple-600 px-2 py-0.5 text-xs">
+						<button
+							onclick={openRequestsDialog}
+							class="rounded-full bg-purple-600 px-2 py-0.5 text-xs transition-colors hover:bg-purple-500"
+							title="View your requests"
+						>
 							{data.requests.length}
-						</span>
+						</button>
 					{/if}
 					<input
 						type="text"
@@ -297,5 +315,56 @@
 				</button>
 			</div>
 		{/if}
+
+		<!-- Requests Dialog -->
+		<dialog
+			bind:this={requestsDialog}
+			class="m-4 w-[calc(100vw-2rem)] max-w-md rounded-lg border border-gray-700 bg-gray-900 p-4 backdrop:bg-black/50 sm:m-auto sm:w-full sm:p-6"
+		>
+			<div class="mb-4 flex items-center justify-between">
+				<h2 class="text-lg font-semibold">Your Requests</h2>
+				<button
+					onclick={closeRequestsDialog}
+					class="p-1 text-gray-400 hover:text-gray-200"
+					aria-label="Close dialog"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="size-6"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			{#if data.requests.length === 0}
+				<p class="text-gray-400">No requests yet</p>
+			{:else}
+				<div class="max-h-80 space-y-3 overflow-y-auto">
+					{#each data.requests as request (request.id)}
+						<div class="rounded-lg bg-gray-800 p-3">
+							<div class="font-medium">{request.title}</div>
+							<div class="text-sm text-gray-400">{request.artist}</div>
+							<div class="mt-1 text-xs text-gray-500">
+								Requested at {formatTime(request.createdAt)}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="mt-4 flex justify-end">
+				<button
+					onclick={closeRequestsDialog}
+					class="rounded bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
+				>
+					Close
+				</button>
+			</div>
+		</dialog>
 	{/if}
 </div>
