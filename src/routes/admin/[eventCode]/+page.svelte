@@ -3,10 +3,11 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import EventStatus from '$lib/comp/event-status.svelte';
+	import CopyText from './copy-text.svelte';
 
 	let { data } = $props();
 
-	// Poll for updates every 5 seconds
+	// Poll for updates every 5 seconds Last Christmas Wham!
 	$effect(() => {
 		const interval = setInterval(() => {
 			invalidateAll();
@@ -27,14 +28,14 @@
 <div class="flex h-dvh flex-col overflow-hidden">
 	<!-- Header -->
 	<header class="border-b border-gray-800 px-4 py-3">
-		<div class="flex items-center justify-between">
+		<div class="flex items-center justify-between gap-2">
 			<div class="flex items-center gap-3">
 				<a href={resolve('/admin')}>&larr;</a>
 				<h1 class="text-xl font-semibold">{data.eventinfo.name} Queue</h1>
 				<EventStatus event={data.eventinfo} />
 			</div>
 			<div class="text-sm text-gray-500">
-				{data.pending.length} pending · {data.done.length} done
+				{data.pending.length}&nbsp;pending · {data.done.length}&nbsp;done
 			</div>
 		</div>
 	</header>
@@ -60,6 +61,7 @@
 									</div>
 								</div>
 
+								<CopyText text={`${req.title} ${req.artist}`} />
 								<button
 									type="submit"
 									name="id"

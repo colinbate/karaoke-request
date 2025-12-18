@@ -18,22 +18,26 @@
 	let loading = $state(true);
 	// svelte-ignore non_reactive_update
 	let ffield: HTMLInputElement | undefined;
+	// svelte-ignore non_reactive_update
 	let requestsDialog: HTMLDialogElement;
 
 	// Filter songs based on search and style
 	let filtered = $derived.by(() => {
-		const searchValue = debouncedSearch.current;
+		const searchValue = debouncedSearch.current.trim();
 
-		if (!selectedStyle && !searchValue.trim()) {
+		if (!selectedStyle && !searchValue) {
 			return songs;
 		}
 		let results = songs;
 
 		if (selectedStyle) {
 			results = results.filter((s) => s[S.STYLES].includes(selectedStyle));
+			if (!searchValue) {
+				return results;
+			}
 		}
 
-		if (searchValue.trim()) {
+		if (searchValue) {
 			const q = searchValue.toLowerCase();
 			results = results.filter(
 				(s) => s[S.TITLE].toLowerCase().includes(q) || s[S.ARTIST].toLowerCase().includes(q)
