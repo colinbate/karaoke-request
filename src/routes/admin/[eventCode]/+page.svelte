@@ -43,7 +43,7 @@
 	<div class="flex flex-1 flex-col overflow-hidden md:flex-row">
 		<!-- Main pending list -->
 		<div class="flex h-2/3 flex-col overflow-hidden p-4 md:h-full md:flex-1">
-			<form class="flex h-full flex-col" method="POST" use:enhance>
+			<form class="flex h-full flex-col" method="POST" action="?/updateStatus" use:enhance>
 				<input type="hidden" name="status" value="done" />
 				<h2 class="mb-3 text-lg font-medium text-purple-400">Pending Requests</h2>
 
@@ -80,6 +80,50 @@
 		<div
 			class="flex h-1/3 flex-col overflow-hidden border-t border-gray-800 bg-gray-900/50 p-4 md:h-full md:w-96 md:border-t-0 md:border-l"
 		>
+			<section class="mb-5 border-b border-gray-800 pb-4">
+				<div class="mb-3 flex items-center justify-between gap-2">
+					<h2 class="text-sm font-medium text-gray-400">Random Lists</h2>
+					<a href={resolve('/admin/lists')} class="text-xs text-purple-300 hover:text-purple-200">
+						Manage
+					</a>
+				</div>
+
+				{#if data.randomLists.length === 0}
+					<p class="text-sm text-gray-600">No lists created yet</p>
+				{:else}
+					<div class="max-h-48 space-y-2 overflow-y-auto">
+						{#each data.randomLists as list (list.id)}
+							<div class="flex items-center gap-2 rounded bg-gray-800/50 p-2 text-sm">
+								<div class="min-w-0 flex-1">
+									<div class="truncate text-gray-300">{list.title}</div>
+									<div class="truncate text-xs text-gray-500">
+										{list.kind === 'song' ? 'Songs' : 'Artists'} · {list.entryCount} entries
+									</div>
+								</div>
+								<form
+									method="POST"
+									action={list.active ? '?/unlinkList' : '?/linkList'}
+									use:enhance
+								>
+									<input type="hidden" name="listId" value={list.id} />
+									<button
+										type="submit"
+										class={[
+											'rounded px-2 py-1 text-xs',
+											list.active
+												? 'bg-purple-700 text-white hover:bg-purple-600'
+												: 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+										]}
+									>
+										{list.active ? 'Active' : 'Activate'}
+									</button>
+								</form>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</section>
+
 			<h2 class="mb-3 text-sm font-medium text-gray-400">Completed ({data.done.length})</h2>
 
 			{#if data.done.length === 0}

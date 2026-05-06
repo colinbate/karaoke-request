@@ -1,14 +1,27 @@
 import type { Actions, PageServerLoad } from './$types';
 import { error, fail } from '@sveltejs/kit';
-import { events, requests } from '$lib/server/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import {
+	eventRandomLists,
+	events,
+	randomListEntries,
+	randomLists,
+	requests,
+} from '$lib/server/db/schema';
+import { eq, and, desc, asc } from 'drizzle-orm';
 import { CODE_REGEX, SESSION_KEY } from '$lib/types';
 import { getId } from '$lib/random';
+import { songValue, type RandomPickerList } from '$lib/random-lists';
 
 export const load: PageServerLoad = async ({ locals, cookies, params }) => {
 	const eventCode = params.eventCode;
 	if (eventCode === 'browse') {
-		return { isActive: true, eventName: 'Browse Song List', requests: [], readonly: true };
+		return {
+			isActive: true,
+			eventName: 'Browse Song List',
+			requests: [],
+			randomLists: [],
+			readonly: true,
+		};
 	}
 	if (!CODE_REGEX.test(eventCode)) {
 		error(404, 'Event not found.');
@@ -31,10 +44,49 @@ export const load: PageServerLoad = async ({ locals, cookies, params }) => {
 		error(404, 'Event not found.');
 	}
 
+	const listRows = await locals.db
+		.select({
+			listId: randomLists.id,
+			title: randomLists.title,
+			note: randomLists.note,
+			kind: randomLists.kind,
+			entryId: randomListEntries.id,
+			entryTitle: randomListEntries.title,
+			entryArtist: randomListEntries.artist,
+		})
+		.from(eventRandomLists)
+		.innerJoin(randomLists, eq(randomLists.id, eventRandomLists.listId))
+		.innerJoin(randomListEntries, eq(randomListEntries.listId, randomLists.id))
+		.where(eq(eventRandomLists.eventCode, eventCode))
+		.orderBy(asc(randomLists.title), asc(randomListEntries.sortOrder), asc(randomListEntries.id));
+
+	const randomListsForEvent: RandomPickerList[] = [];
+	for (const row of listRows) {
+		let list = randomListsForEvent.find((item) => item.id === row.listId);
+		if (!list) {
+			list = {
+				id: row.listId,
+				title: row.title,
+				note: row.note,
+				kind: row.kind,
+				items: [],
+			};
+			randomListsForEvent.push(list);
+		}
+
+		list.items.push({
+			label: row.entryTitle,
+			value:
+				row.kind === 'song' ? songValue(row.entryTitle, row.entryArtist ?? '') : row.entryTitle,
+			detail: row.kind === 'song' ? (row.entryArtist ?? '') : undefined,
+		});
+	}
+
 	return {
 		isActive: eventinfo[0].status === 'active',
 		eventName: eventinfo[0].name,
 		requests: myrequests,
+		randomLists: randomListsForEvent,
 		readonly: false,
 	};
 };

@@ -18,6 +18,12 @@
 	<div class="mx-auto max-w-4xl">
 		<header class="mb-6 flex items-center justify-between">
 			<h1 class="text-2xl font-bold">Event Management</h1>
+			<a
+				href={resolve('/admin/lists')}
+				class="rounded bg-gray-800 px-3 py-2 text-sm hover:bg-gray-700"
+			>
+				Random Lists
+			</a>
 		</header>
 
 		<!-- Create new event -->

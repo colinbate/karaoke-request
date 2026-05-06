@@ -7,9 +7,7 @@
 	import { onMount } from 'svelte';
 	import { Debounced, onClickOutside } from 'runed';
 	import RandomPickerDialog from '$lib/comp/random-picker-dialog.svelte';
-	import { CHAOS_SONGS, RANDOM_ARTISTS, type RandomListItem } from '$lib/random-lists';
-
-	type PickerMode = 'chaos' | 'artist';
+	import type { RandomListItem, RandomPickerList } from '$lib/random-lists';
 
 	let { data, form }: PageProps = $props();
 
@@ -19,7 +17,7 @@
 	let userName = $state('');
 	let menuOpen = $state(false);
 	let namePrompt = $state(false);
-	let pickerMode = $state<PickerMode | null>(null);
+	let activePickerList = $state<RandomPickerList | null>(null);
 	let randomSongValue = $state('');
 	let styles: string[] = $state.raw([]);
 	let songs: Song[] = $state.raw([]);
@@ -32,7 +30,6 @@
 	let randomSongForm: HTMLFormElement | undefined;
 	// svelte-ignore non_reactive_update
 	let requestsDialog: HTMLDialogElement;
-	// sveltse-ignore non_reactive_update
 	let randomMenu: HTMLDivElement | undefined = $state();
 
 	const clickOutside = onClickOutside(
@@ -98,14 +95,18 @@
 	let totalPages = $derived(Math.ceil(filtered.length / pageSize));
 	let pageItems = $derived(filtered.slice(page * pageSize, (page + 1) * pageSize));
 	let showNamePrompt = $derived((form?.error || namePrompt) && !userName.trim());
-	let pickerItems = $derived(
-		pickerMode === 'chaos' ? CHAOS_SONGS : pickerMode === 'artist' ? RANDOM_ARTISTS : []
-	);
-	let pickerTitle = $derived(
-		pickerMode === 'chaos' ? 'Rolling on chaos list' : 'Finding a random artist'
-	);
+	let pickerItems = $derived(activePickerList?.items ?? []);
+	let pickerTitle = $derived.by(() => {
+		if (!activePickerList) {
+			return 'Rolling list';
+		}
+
+		return activePickerList.kind === 'song'
+			? `Rolling ${activePickerList.title}`
+			: `Finding from ${activePickerList.title}`;
+	});
 	let pickerPickedLabel = $derived(
-		pickerMode === 'chaos' ? 'Requesting this one...' : 'Searching this artist...'
+		activePickerList?.kind === 'song' ? 'Requesting this one...' : 'Searching this artist...'
 	);
 
 	// Reset page when filters change
@@ -152,27 +153,28 @@
 		}
 	}
 
-	function openPicker(mode: PickerMode) {
+	function openPicker(list: RandomPickerList) {
 		if (!requireName()) {
 			return;
 		}
 
 		saveName();
 		menuOpen = false;
-		pickerMode = mode;
+		clickOutside.stop();
+		activePickerList = list;
 	}
 
 	function handleRandomPick(item: RandomListItem) {
-		const mode = pickerMode;
-		pickerMode = null;
+		const list = activePickerList;
+		activePickerList = null;
 
-		if (mode === 'chaos') {
+		if (list?.kind === 'song') {
 			randomSongValue = item.value;
 			setTimeout(() => randomSongForm?.requestSubmit());
 			return;
 		}
 
-		if (mode === 'artist') {
+		if (list?.kind === 'artist') {
 			search = item.value;
 			selectedStyle = '';
 			setTimeout(() => ffield?.focus());
@@ -217,11 +219,13 @@
 			class="flex items-center gap-3 border-b border-gray-800 px-4 py-2"
 			bind:clientHeight={headerHeight}
 		>
-			<svg class="h-8 w-8 text-purple-500" viewBox="0 0 640 640" fill="currentColor"
-				><path
-					d="M499.7 70.8C507.5 76.8 512 86.1 512 96L512 192C512 206.7 502 219.5 487.8 223L384 249L384 464C384 517 333.9 560 272 560C210.1 560 160 517 160 464C160 411 210.1 368 272 368C289.2 368 305.5 371.3 320 377.2L320 128C320 113.3 330 100.5 344.2 97L472.2 65C481.8 62.6 491.9 64.8 499.7 70.8z"
-				/></svg
-			>
+			<a href={resolve('/')} aria-label="Home">
+				<svg class="h-8 w-8 text-purple-500" viewBox="0 0 640 640" fill="currentColor"
+					><path
+						d="M499.7 70.8C507.5 76.8 512 86.1 512 96L512 192C512 206.7 502 219.5 487.8 223L384 249L384 464C384 517 333.9 560 272 560C210.1 560 160 517 160 464C160 411 210.1 368 272 368C289.2 368 305.5 371.3 320 377.2L320 128C320 113.3 330 100.5 344.2 97L472.2 65C481.8 62.6 491.9 64.8 499.7 70.8z"
+					/></svg
+				>
+			</a>
 			<h1 class="min-w-0 truncate text-lg font-semibold">{data.eventName || 'Karaoke'}</h1>
 			{#if data.readonly}
 				<div class="ml-auto">
@@ -252,49 +256,45 @@
 							Please set your name to request ↑
 						</div>
 					{/if}
-					<div class="relative" bind:this={randomMenu}>
-						<button
-							type="button"
-							aria-label="Open event menu"
-							aria-haspopup="menu"
-							aria-expanded={menuOpen}
-							onclick={openRandomMenu}
-							class="flex size-9 items-center justify-center rounded bg-gray-800 text-gray-200 transition-colors hover:bg-gray-700"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 640 640"
-								fill="currentColor"
-								class="size-6"
-								><path
-									d="M518.6 256.4C550.9 259.7 576.1 286.9 576.1 320.1L576.1 512.1L575.8 518.6C572.7 548.7 548.8 572.7 518.7 575.7L512.2 576L320.2 576L313.7 575.7C283.6 572.6 259.6 548.7 256.6 518.6L256.3 512.1L256.3 481.9L294.6 492.2L300.6 493.6C301.8 493.9 303 494.1 304.3 494.3L304.3 512.1C304.3 520.9 311.5 528.1 320.3 528.1L512.3 528.1C521.1 528.1 528.3 520.9 528.3 512.1L528.3 320.1C528.3 311.3 521.1 304.1 512.3 304.1L469.2 304.1L482.1 256.1L512.3 256.1L518.8 256.4zM119.5 110.2C131.6 78.4 164.6 59.3 198.2 64.8L205.4 66.4L394.9 117.2L401.9 119.4C436 132.4 455.4 169.3 445.8 205.3L395 394.9L392.7 401.9C380.6 433.7 347.6 452.8 314 447.3L306.8 445.8L117.3 395C81.3 385.3 59 350 64.9 314L66.4 306.8L117.2 117.3L119.5 110.3zM190 112.1C179.2 110.6 168.6 116.8 164.6 126.9L163.3 130.8L112.9 319.2C109.5 332 117.1 345.2 129.9 348.6L319.4 399.4L319.4 399.4C331.4 402.6 343.7 396.2 348 384.8L348.8 382.4L399.6 192.9L400.4 188.4C401.1 178.1 395.1 168.3 385.4 164.4L381.6 163.2L194.7 113.1L190.2 112.1zM310.1 361.3C296.7 369 279.6 364.4 271.9 351.1C264.1 337.7 268.7 320.5 282.1 312.8C295.5 305.1 312.6 309.7 320.4 323.1C328.1 336.4 323.5 353.6 310.1 361.3zM189.1 320.3C175.7 328 158.6 323.4 150.9 310.1C143.1 296.7 147.7 279.5 161.1 271.8C174.5 264.1 191.6 268.7 199.4 282.1C207.1 295.4 202.5 312.6 189.1 320.3zM270.1 280.3C256.7 288 239.6 283.4 231.9 270.1C224.1 256.7 228.7 239.5 242.1 231.8C255.5 224.1 272.6 228.7 280.4 242.1C288.1 255.4 283.5 272.6 270.1 280.3zM351.1 240.3C337.7 248 320.6 243.4 312.9 230.1C305.1 216.7 309.7 199.5 323.1 191.8C336.5 184.1 353.6 188.7 361.4 202.1C369.1 215.4 364.5 232.6 351.1 240.3zM230.1 199.3C216.7 207 199.6 202.4 191.9 189.1C184.1 175.7 188.7 158.5 202.1 150.8C215.5 143.1 232.6 147.7 240.4 161.1C248.1 174.4 243.5 191.6 230.1 199.3z"
-								/></svg
+					{#if data.randomLists.length > 0}
+						<div class="relative" bind:this={randomMenu}>
+							<button
+								type="button"
+								aria-label="Open event menu"
+								aria-haspopup="menu"
+								aria-expanded={menuOpen}
+								onclick={openRandomMenu}
+								class="flex size-9 items-center justify-center rounded bg-gray-800 text-gray-200 transition-colors hover:bg-gray-700"
 							>
-						</button>
-						{#if menuOpen}
-							<div
-								role="menu"
-								class="absolute top-full right-0 z-20 mt-2 w-56 overflow-hidden rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-lg shadow-black/30"
-							>
-								<button
-									type="button"
-									role="menuitem"
-									onclick={() => openPicker('chaos')}
-									class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-800"
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 640 640"
+									fill="currentColor"
+									class="size-6"
+									><path
+										d="M518.6 256.4C550.9 259.7 576.1 286.9 576.1 320.1L576.1 512.1L575.8 518.6C572.7 548.7 548.8 572.7 518.7 575.7L512.2 576L320.2 576L313.7 575.7C283.6 572.6 259.6 548.7 256.6 518.6L256.3 512.1L256.3 481.9L294.6 492.2L300.6 493.6C301.8 493.9 303 494.1 304.3 494.3L304.3 512.1C304.3 520.9 311.5 528.1 320.3 528.1L512.3 528.1C521.1 528.1 528.3 520.9 528.3 512.1L528.3 320.1C528.3 311.3 521.1 304.1 512.3 304.1L469.2 304.1L482.1 256.1L512.3 256.1L518.8 256.4zM119.5 110.2C131.6 78.4 164.6 59.3 198.2 64.8L205.4 66.4L394.9 117.2L401.9 119.4C436 132.4 455.4 169.3 445.8 205.3L395 394.9L392.7 401.9C380.6 433.7 347.6 452.8 314 447.3L306.8 445.8L117.3 395C81.3 385.3 59 350 64.9 314L66.4 306.8L117.2 117.3L119.5 110.3zM190 112.1C179.2 110.6 168.6 116.8 164.6 126.9L163.3 130.8L112.9 319.2C109.5 332 117.1 345.2 129.9 348.6L319.4 399.4L319.4 399.4C331.4 402.6 343.7 396.2 348 384.8L348.8 382.4L399.6 192.9L400.4 188.4C401.1 178.1 395.1 168.3 385.4 164.4L381.6 163.2L194.7 113.1L190.2 112.1zM310.1 361.3C296.7 369 279.6 364.4 271.9 351.1C264.1 337.7 268.7 320.5 282.1 312.8C295.5 305.1 312.6 309.7 320.4 323.1C328.1 336.4 323.5 353.6 310.1 361.3zM189.1 320.3C175.7 328 158.6 323.4 150.9 310.1C143.1 296.7 147.7 279.5 161.1 271.8C174.5 264.1 191.6 268.7 199.4 282.1C207.1 295.4 202.5 312.6 189.1 320.3zM270.1 280.3C256.7 288 239.6 283.4 231.9 270.1C224.1 256.7 228.7 239.5 242.1 231.8C255.5 224.1 272.6 228.7 280.4 242.1C288.1 255.4 283.5 272.6 270.1 280.3zM351.1 240.3C337.7 248 320.6 243.4 312.9 230.1C305.1 216.7 309.7 199.5 323.1 191.8C336.5 184.1 353.6 188.7 361.4 202.1C369.1 215.4 364.5 232.6 351.1 240.3zM230.1 199.3C216.7 207 199.6 202.4 191.9 189.1C184.1 175.7 188.7 158.5 202.1 150.8C215.5 143.1 232.6 147.7 240.4 161.1C248.1 174.4 243.5 191.6 230.1 199.3z"
+									/></svg
 								>
-									Roll random chaos list
-								</button>
-								<button
-									type="button"
-									role="menuitem"
-									onclick={() => openPicker('artist')}
-									class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-800"
+							</button>
+							{#if menuOpen}
+								<div
+									role="menu"
+									class="absolute top-full right-0 z-20 mt-2 w-56 overflow-hidden rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-lg shadow-black/30"
 								>
-									Random artist list
-								</button>
-							</div>
-						{/if}
-					</div>
+									{#each data.randomLists as list (list.id)}
+										<button
+											type="button"
+											role="menuitem"
+											onclick={() => openPicker(list)}
+											class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-800"
+										>
+											{list.kind === 'song' ? `Roll ${list.title}` : list.title}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</header>
@@ -499,12 +499,12 @@
 			</div>
 		</dialog>
 
-		{#if pickerMode}
+		{#if activePickerList}
 			<RandomPickerDialog
 				title={pickerTitle}
 				items={pickerItems}
 				pickedLabel={pickerPickedLabel}
-				onCancel={() => (pickerMode = null)}
+				onCancel={() => (activePickerList = null)}
 				onPick={handleRandomPick}
 			/>
 		{/if}
