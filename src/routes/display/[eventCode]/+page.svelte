@@ -31,6 +31,7 @@
 			...nextState,
 			eventCode: data.eventCode,
 			requestUrl: nextState.requestUrl || data.requestUrl,
+			showLogo: nextState.showLogo ?? false,
 		};
 		storedState = next;
 		persist(next);
@@ -125,10 +126,7 @@
 	></div>
 
 	{#if displayState.showRequestUrl}
-		<div
-			transition:fade
-			class="absolute top-6 left-6 max-w-[34vw] rounded-md border border-white/35 bg-black/35 px-5 py-3 text-white/80 shadow-2xl backdrop-blur-md"
-		>
+		<div transition:fade class="absolute top-6 left-6 max-w-[34vw] px-5 py-3 text-white">
 			<div class="text-[0.8vmin] tracking-[0.18em] text-white/45 uppercase">Requests</div>
 			<div class="mt-1 truncate text-[2vmin] font-semibold">{requestLabel}</div>
 		</div>
@@ -137,7 +135,7 @@
 	{#if displayState.showQr}
 		<section
 			transition:fade
-			class="absolute top-1/2 left-8 flex w-[min(32vw,max-content)] -translate-y-1/2 flex-col items-start gap-5 rounded-lg border border-white/35 bg-black/55 p-7 shadow-2xl backdrop-blur-xl"
+			class="absolute top-1/2 left-8 flex w-[min(32vw,max-content)] -translate-y-1/2 flex-col items-start gap-5 p-7 shadow-2xl"
 		>
 			<div>
 				<div class="text-[1vmin] tracking-[0.2em] text-cyan-100/65 uppercase">Want to sing?</div>
@@ -152,8 +150,16 @@
 					/>
 				{/if}
 			</div>
-			<div class="max-w-full truncate text-[1vmin] text-white/70">{requestLabel}</div>
 		</section>
+	{/if}
+
+	{#if displayState.showLogo}
+		<img
+			transition:fade
+			src="/lost-in-karaoke.webp"
+			alt="Lost in Karaoke"
+			class="pointer-events-none absolute top-3/4 left-1/2 w-[min(32vw,44vmin)] -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_24px_55px_rgba(0,0,0,0.65)]"
+		/>
 	{/if}
 
 	{#if displayState.upNext}

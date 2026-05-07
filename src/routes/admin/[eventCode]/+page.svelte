@@ -16,9 +16,9 @@
 	} from '$lib/display';
 	import CopyText from './copy-text.svelte';
 	import {
-		ChevronDown,
 		ChevronRight,
 		CircleCheckBig,
+		Image as ImageIcon,
 		ListStart,
 		Plus,
 		RefreshCw,
@@ -67,6 +67,7 @@
 					storedDisplayState = {
 						...parsed,
 						requestUrl: parsed.requestUrl || data.requestUrl,
+						showLogo: parsed.showLogo ?? false,
 					};
 				}
 			} catch (err) {
@@ -170,6 +171,10 @@
 		publishDisplayPatch({ showQr: !displayState.showQr });
 	}
 
+	function toggleLogo() {
+		publishDisplayPatch({ showLogo: !displayState.showLogo });
+	}
+
 	function syncDisplay() {
 		const at = Date.now();
 		const nextState = {
@@ -228,6 +233,19 @@
 					class="rounded bg-cyan-700 px-3 py-2 text-sm font-medium hover:bg-cyan-600"
 				>
 					{displayState.showQr ? 'Hide QR' : 'Show QR'}
+				</button>
+				<button
+					type="button"
+					onclick={toggleLogo}
+					aria-label={displayState.showLogo ? 'Hide logo' : 'Show logo'}
+					class={[
+						'grid place-items-center rounded px-3 py-2 text-sm font-medium',
+						displayState.showLogo
+							? 'bg-fuchsia-700 hover:bg-fuchsia-600'
+							: 'bg-gray-800 hover:bg-gray-700',
+					]}
+				>
+					<ImageIcon class="size-5" />
 				</button>
 				<button
 					type="button"

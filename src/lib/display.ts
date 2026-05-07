@@ -18,6 +18,7 @@ export type DisplayState = {
 	showRequestUrl: boolean;
 	requestUrl: string;
 	showQr: boolean;
+	showLogo: boolean;
 	topMessagesEnabled: boolean;
 	topMessages: string[];
 	pinnedMessage: string | null;
@@ -58,6 +59,7 @@ export function createDisplayState(eventCode: string, requestUrl: string): Displ
 		showRequestUrl: true,
 		requestUrl,
 		showQr: false,
+		showLogo: false,
 		topMessagesEnabled: false,
 		topMessages: [],
 		pinnedMessage: null,
@@ -77,6 +79,7 @@ export function isDisplayState(value: unknown): value is DisplayState {
 		(state.upNext === null || typeof state.upNext === 'object') &&
 		typeof state.showRequestUrl === 'boolean' &&
 		typeof state.showQr === 'boolean' &&
+		(state.showLogo === undefined || typeof state.showLogo === 'boolean') &&
 		typeof state.requestUrl === 'string' &&
 		typeof state.topMessagesEnabled === 'boolean' &&
 		Array.isArray(state.topMessages) &&
