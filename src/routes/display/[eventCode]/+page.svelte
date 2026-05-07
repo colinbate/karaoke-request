@@ -116,9 +116,9 @@
 
 <main
 	class="relative h-dvh overflow-hidden bg-[#05050a] text-white"
-	style:background={`radial-gradient(circle at 18% 16%, rgba(120, 60, 255, 0.24), transparent 34%),
-		radial-gradient(circle at 82% 28%, rgba(0, 200, 255, 0.14), transparent 32%),
-		radial-gradient(circle at 42% 95%, rgba(255, 80, 160, 0.12), transparent 36%),
+	style:background={`radial-gradient(circle at 18% 16%, rgba(120, 60, 255, 0.24), transparent 44%),
+		radial-gradient(circle at 82% 28%, rgba(200, 200, 0, 0.19), transparent 42%),
+		radial-gradient(circle at 42% 95%, rgba(255, 120, 0, 0.22), transparent 46%),
 		#05050a`}
 >
 	<div
