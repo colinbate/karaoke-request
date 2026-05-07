@@ -2,165 +2,300 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
 	import EventStatus from '$lib/comp/event-status.svelte';
+	import {
+		DISPLAY_CHANNEL_NAME,
+		createDisplayState,
+		displayStateKey,
+		isDisplayState,
+		type DisplayPatch,
+		type DisplayState,
+		type DisplayUpNext,
+	} from '$lib/display';
 	import CopyText from './copy-text.svelte';
+	import { CircleCheckBig, ListStart, RefreshCw, SquareArrowOutUpRight } from '@lucide/svelte';
 
 	let { data } = $props();
 
-	// Poll for updates every 5 seconds Last Christmas Wham!
-	$effect(() => {
+	const fallbackDisplayState = $derived(createDisplayState(data.eventinfo.code, data.requestUrl));
+	let storedDisplayState = $state<DisplayState | null>(null);
+	let channel: BroadcastChannel | null = null;
+
+	const displayState = $derived(storedDisplayState ?? fallbackDisplayState);
+	const activeListCount = $derived(data.randomLists.filter((list) => list.active).length);
+
+	onMount(() => {
+		const stored = localStorage.getItem(displayStateKey(data.eventinfo.code));
+		if (stored) {
+			try {
+				const parsed: unknown = JSON.parse(stored);
+				if (isDisplayState(parsed) && parsed.eventCode === data.eventinfo.code) {
+					storedDisplayState = {
+						...parsed,
+						requestUrl: parsed.requestUrl || data.requestUrl,
+					};
+				}
+			} catch (err) {
+				console.error(err);
+			}
+		}
+
+		channel = new BroadcastChannel(DISPLAY_CHANNEL_NAME);
 		const interval = setInterval(() => {
 			invalidateAll();
 		}, 5000);
 
-		return () => clearInterval(interval);
+		return () => {
+			clearInterval(interval);
+			channel?.close();
+		};
 	});
 
 	function formatTime(dateStr: string) {
-		const date = new Date(dateStr); // Assume UTC
+		const date = new Date(dateStr);
 		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	}
+
+	function persistDisplayState(nextState: DisplayState) {
+		localStorage.setItem(displayStateKey(data.eventinfo.code), JSON.stringify(nextState));
+	}
+
+	function publishDisplayPatch(patch: DisplayPatch) {
+		const at = Date.now();
+		const nextState = {
+			...displayState,
+			...patch,
+			eventCode: data.eventinfo.code,
+			updatedAt: at,
+		};
+		storedDisplayState = nextState;
+		persistDisplayState(nextState);
+		channel?.postMessage({
+			type: 'display:patch',
+			eventCode: data.eventinfo.code,
+			patch,
+			at,
+		});
+	}
+
+	function setUpNext(request: (typeof data.pending)[number]) {
+		const upNext: DisplayUpNext = {
+			requestId: request.id,
+			singer: request.name,
+			title: request.title,
+			artist: request.artist,
+		};
+
+		publishDisplayPatch({ upNext });
+	}
+
+	function clearUpNext() {
+		publishDisplayPatch({ upNext: null });
+	}
+
+	function toggleRequestUrl() {
+		publishDisplayPatch({ showRequestUrl: !displayState.showRequestUrl });
+	}
+
+	function toggleQr() {
+		publishDisplayPatch({ showQr: !displayState.showQr });
+	}
+
+	function syncDisplay() {
+		const at = Date.now();
+		const nextState = {
+			...displayState,
+			eventCode: data.eventinfo.code,
+			requestUrl: data.requestUrl,
+			updatedAt: at,
+		};
+		storedDisplayState = nextState;
+		persistDisplayState(nextState);
+		channel?.postMessage({
+			type: 'display:sync',
+			eventCode: data.eventinfo.code,
+			state: nextState,
+			at,
+		});
 	}
 </script>
 
 <svelte:head>
-	<title>{data.eventinfo.name} - Request Queue</title>
+	<title>{data.eventinfo.name} - KJ Queue</title>
 </svelte:head>
-<div class="flex h-dvh flex-col overflow-hidden">
-	<!-- Header -->
-	<header class="border-b border-gray-800 px-4 py-3">
-		<div class="flex items-center justify-between gap-2">
-			<div class="flex items-center gap-3">
-				<a href={resolve('/admin')}>&larr;</a>
-				<h1 class="text-xl font-semibold">{data.eventinfo.name} Queue</h1>
-				<EventStatus event={data.eventinfo} />
+
+<div class="mx-auto flex h-dvh max-w-xl flex-col overflow-hidden">
+	<header class="shrink-0 border-b border-gray-800 px-4 py-3">
+		<div class="flex items-center justify-between gap-3">
+			<div class="min-w-0">
+				<div class="flex items-center gap-3">
+					<a href={resolve('/admin')} aria-label="Back to admin">&larr;</a>
+					<h1 class="truncate text-lg font-semibold">{data.eventinfo.name}</h1>
+					<EventStatus event={data.eventinfo} />
+				</div>
+				<div class="mt-1 text-xs text-gray-500">
+					{data.pending.length} pending · {data.done.length} done · {activeListCount} lists active
+				</div>
 			</div>
-			<div class="text-sm text-gray-500">
-				{data.pending.length}&nbsp;pending · {data.done.length}&nbsp;done
-			</div>
+			<a
+				href={resolve(`/admin/lists`)}
+				class="shrink-0 rounded border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800"
+			>
+				Lists
+			</a>
 		</div>
 	</header>
 
-	<div class="flex flex-1 flex-col overflow-hidden md:flex-row">
-		<!-- Main pending list -->
-		<div class="flex h-2/3 flex-col overflow-hidden p-4 md:h-full md:flex-1">
-			<form class="flex h-full flex-col" method="POST" action="?/updateStatus" use:enhance>
-				<input type="hidden" name="status" value="done" />
-				<h2 class="mb-3 text-lg font-medium text-purple-400">Pending Requests</h2>
+	<section class="shrink-0 space-y-3 border-b border-gray-800 bg-gray-950/95 px-4 py-3">
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<div class="text-xs tracking-wide text-purple-300 uppercase">Display</div>
+			</div>
 
-				{#if data.pending.length === 0}
-					<p class="text-gray-500">No pending requests</p>
-				{:else}
-					<div class="flex-1 space-y-2 overflow-y-auto">
-						{#each data.pending as req (req.id)}
-							<div class="flex items-center gap-3 rounded-lg bg-gray-900 p-3 pr-6">
-								<div class="min-w-0 flex-1">
-									<div class="font-medium">{req.title}</div>
-									<div class="text-sm text-gray-400">{req.artist}</div>
-									<div class="mt-1 text-xs text-gray-500">
-										{req.name} · {formatTime(req.createdAt)}
-									</div>
-								</div>
+			<div class="flex gap-2">
+				<button
+					type="button"
+					onclick={toggleQr}
+					class="rounded bg-cyan-700 px-3 py-2 text-sm font-medium hover:bg-cyan-600"
+				>
+					{displayState.showQr ? 'Hide QR' : 'Show QR'}
+				</button>
+				<button
+					type="button"
+					onclick={toggleRequestUrl}
+					class="rounded bg-gray-800 px-3 py-2 text-sm font-medium hover:bg-gray-700"
+				>
+					{displayState.showRequestUrl ? 'Hide URL' : 'Show URL'}
+				</button>
+				<button
+					type="button"
+					onclick={syncDisplay}
+					aria-label="Sync"
+					class="rounded bg-purple-700 px-3 py-2 text-sm font-medium hover:bg-purple-600"
+				>
+					<RefreshCw class="size-5" />
+				</button>
+				<a
+					href={resolve(`/display/${data.eventinfo.code}`)}
+					target="_blank"
+					rel="noreferrer"
+					aria-label="Open"
+					class="grid place-items-center rounded border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800"
+				>
+					<SquareArrowOutUpRight class="size-5" />
+				</a>
+			</div>
+		</div>
 
-								<CopyText text={`${req.title} ${req.artist}`} />
+		<div class="rounded border border-gray-800 bg-gray-900/70 p-3">
+			<div class="mb-2 flex items-center justify-between gap-2">
+				<div class="text-xs tracking-wide text-gray-400 uppercase">Up next</div>
+				{#if displayState.upNext}
+					<button
+						type="button"
+						onclick={clearUpNext}
+						class="rounded bg-gray-800 px-2 py-1 text-xs text-gray-300 hover:bg-gray-700"
+					>
+						Clear
+					</button>
+				{/if}
+			</div>
+			{#if displayState.upNext}
+				<div class="truncate font-medium">{displayState.upNext.singer}</div>
+				{#if displayState.upNext.title}
+					<div class="truncate text-sm text-gray-400">
+						{displayState.upNext.title}
+						{#if displayState.upNext.artist}
+							<span class="text-gray-600"> · {displayState.upNext.artist}</span>
+						{/if}
+					</div>
+				{/if}
+			{:else}
+				<div class="text-sm text-gray-500">Nothing set</div>
+			{/if}
+		</div>
+	</section>
+
+	<div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+		<h2 class="mb-3 text-sm font-medium tracking-wide text-purple-300 uppercase">
+			Pending Requests
+		</h2>
+
+		{#if data.pending.length === 0}
+			<p class="rounded border border-gray-800 bg-gray-900/60 p-4 text-sm text-gray-500">
+				No pending requests
+			</p>
+		{:else}
+			<div class="space-y-3">
+				{#each data.pending as req (req.id)}
+					<article class="flex justify-between rounded-lg border border-gray-800 bg-gray-900 p-3">
+						<div class="min-w-0">
+							<div class="truncate font-medium">{req.title}</div>
+							<div class="truncate text-sm text-gray-400">{req.artist}</div>
+							<div class="mt-1 truncate text-xs text-gray-500">
+								{req.name} · {formatTime(req.createdAt)}
+							</div>
+						</div>
+
+						<div class=" flex flex-row gap-2">
+							<CopyText text={`${req.title} ${req.artist}`} />
+							<button
+								type="button"
+								aria-label="Up Next"
+								onclick={() => setUpNext(req)}
+								class="grid size-8 place-items-center rounded bg-purple-700 text-sm font-medium hover:bg-purple-600"
+							>
+								<ListStart class="size-5" />
+							</button>
+							<form method="POST" action="?/updateStatus" use:enhance class="w-8 min-w-0">
+								<input type="hidden" name="status" value="done" />
 								<button
 									type="submit"
+									aria-label="Done"
 									name="id"
 									value={req.id}
-									class="rounded bg-green-600 px-3 py-1.5 text-sm font-medium hover:bg-green-500"
+									class="grid size-8 w-full place-items-center rounded bg-green-700 text-sm font-medium hover:bg-green-600"
 								>
-									Done
+									<CircleCheckBig class="size-5" />
 								</button>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</form>
-		</div>
-		<!-- Done sidebar -->
-		<div
-			class="flex h-1/3 flex-col overflow-hidden border-t border-gray-800 bg-gray-900/50 p-4 md:h-full md:w-96 md:border-t-0 md:border-l"
-		>
-			<section class="mb-5 border-b border-gray-800 pb-4">
-				<div class="mb-3 flex items-center justify-between gap-2">
-					<h2 class="text-sm font-medium text-gray-400">Random Lists</h2>
-					<a href={resolve('/admin/lists')} class="text-xs text-purple-300 hover:text-purple-200">
-						Manage
-					</a>
-				</div>
+							</form>
+						</div>
+					</article>
+				{/each}
+			</div>
+		{/if}
 
-				{#if data.randomLists.length === 0}
-					<p class="text-sm text-gray-600">No lists created yet</p>
-				{:else}
-					<div class="max-h-48 space-y-2 overflow-y-auto">
-						{#each data.randomLists as list (list.id)}
-							<div class="flex items-center gap-2 rounded bg-gray-800/50 p-2 text-sm">
-								<div class="min-w-0 flex-1">
-									<div class="truncate text-gray-300">{list.title}</div>
-									<div class="truncate text-xs text-gray-500">
-										{list.kind === 'song' ? 'Songs' : 'Artists'} · {list.entryCount} entries
-									</div>
-								</div>
-								<form
-									method="POST"
-									action={list.active ? '?/unlinkList' : '?/linkList'}
-									use:enhance
-								>
-									<input type="hidden" name="listId" value={list.id} />
-									<button
-										type="submit"
-										class={[
-											'rounded px-2 py-1 text-xs',
-											list.active
-												? 'bg-purple-700 text-white hover:bg-purple-600'
-												: 'bg-gray-700 text-gray-300 hover:bg-gray-600',
-										]}
-									>
-										{list.active ? 'Active' : 'Activate'}
-									</button>
-								</form>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
-
-			<h2 class="mb-3 text-sm font-medium text-gray-400">Completed ({data.done.length})</h2>
+		<section class="mt-6">
+			<h2 class="mb-3 text-sm font-medium tracking-wide text-gray-400 uppercase">
+				Completed ({data.done.length})
+			</h2>
 
 			{#if data.done.length === 0}
 				<p class="text-sm text-gray-600">None yet</p>
 			{:else}
-				<form class="flex flex-1 flex-col overflow-hidden" method="POST" use:enhance>
-					<div class="flex-1 space-y-2 overflow-y-auto">
-						<input type="hidden" name="status" value="pending" />
-						{#each data.done as req (req.id)}
-							<div class="group flex items-start gap-2 rounded bg-gray-800/50 p-2 text-sm">
-								<div class="min-w-0 flex-1">
-									<div class="truncate text-gray-300">{req.title}</div>
-									<div class="truncate text-xs text-gray-500">{req.artist} · {req.name}</div>
-								</div>
-
+				<div class="space-y-2">
+					{#each data.done as req (req.id)}
+						<article class="flex items-center gap-2 rounded bg-gray-900/60 p-2 text-sm">
+							<div class="min-w-0 flex-1">
+								<div class="truncate text-gray-300">{req.title}</div>
+								<div class="truncate text-xs text-gray-500">{req.artist} · {req.name}</div>
+							</div>
+							<form method="POST" action="?/updateStatus" use:enhance>
+								<input type="hidden" name="status" value="pending" />
 								<button
 									type="submit"
 									name="id"
 									value={req.id}
-									class="text-xs text-gray-600 opacity-0 group-hover:opacity-100 hover:text-gray-400"
-									title="Move back to pending"
+									class="rounded bg-gray-800 px-2 py-1 text-xs text-gray-300 hover:bg-gray-700"
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 640 640"
-										class="size-5"
-										fill="currentColor"
-										><path
-											d="M71.1 209C61.7 199.6 61.7 184.4 71.1 175.1L191.1 55C200.5 45.6 215.7 45.6 225 55C234.3 64.4 234.4 79.6 225 88.9L146 168L388 168C491.8 168 576 252.2 576 356C576 459.8 491.8 544 388 544L152 544L149.5 543.9C137.5 542.6 128 532.4 128 520C128 507.6 137.4 497.4 149.5 496.1L152 496L388 496C465.3 496 528 433.3 528 356C528 278.7 465.3 216 388 216L145.9 216L224.9 295L226.6 296.8C234.3 306.2 233.7 320.1 224.9 328.9C216.1 337.7 202.2 338.2 192.8 330.6L191 328.9L71 208.9z"
-										/></svg
-									>
+									Undo
 								</button>
-							</div>
-						{/each}
-					</div>
-				</form>
+							</form>
+						</article>
+					{/each}
+				</div>
 			{/if}
-		</div>
+		</section>
 	</div>
 </div>

@@ -10,7 +10,7 @@ import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { CODE_REGEX } from '$lib/types';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
+export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const eventCode = params.eventCode;
 	if (!CODE_REGEX.test(eventCode)) {
 		error(404, 'Event not found.');
@@ -51,6 +51,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		pending,
 		done,
 		eventinfo: eventinfo[0],
+		requestUrl: new URL(`/event/${eventCode}`, url).toString(),
 		randomLists: lists.map((list) => ({ ...list, active: linkedListIds.has(list.id) })),
 	};
 };
