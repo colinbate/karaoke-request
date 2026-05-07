@@ -165,7 +165,7 @@
 	{#if displayState.upNext}
 		{#key `${displayState.upNext.singer}|${displayState.upNext.title}|${displayState.upNext.artist}`}
 			<section
-				transition:fly={{ opacity: 0, y: '100%', duration: 600 }}
+				transition:fly|global={{ opacity: 0, y: '100%', duration: 600 }}
 				class="absolute bottom-8 left-8 max-w-[34vw] rounded-lg border border-white/35 bg-black/55 px-6 py-5 shadow-2xl backdrop-blur-xl"
 			>
 				<div class="text-[0.8vmin] tracking-[0.2em] text-purple-100/80 uppercase">Up next</div>
