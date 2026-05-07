@@ -11,7 +11,7 @@
 		type DisplayPatch,
 		type DisplayState,
 	} from '$lib/display';
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 
 	let { data }: PageProps = $props();
 
@@ -157,20 +157,22 @@
 	{/if}
 
 	{#if displayState.upNext}
-		<section
-			transition:fade
-			class="absolute bottom-8 left-8 max-w-[34vw] rounded-lg border border-white/35 bg-black/55 px-6 py-5 shadow-2xl backdrop-blur-xl"
-		>
-			<div class="text-[0.8vmin] tracking-[0.2em] text-purple-100/80 uppercase">Up next</div>
-			<div class="mt-2 truncate text-[5vmin] leading-none font-semibold">
-				{displayState.upNext.singer}
-			</div>
-			{#if displayState.upNext.title}
-				<div class="mt-4 truncate text-[2vmin] text-white/80">{displayState.upNext.title}</div>
-			{/if}
-			{#if displayState.upNext.artist}
-				<div class="mt-1 truncate text-[1.5vmin] text-white/50">{displayState.upNext.artist}</div>
-			{/if}
-		</section>
+		{#key `${displayState.upNext.singer}|${displayState.upNext.title}|${displayState.upNext.artist}`}
+			<section
+				transition:fly={{ opacity: 0, y: '100%', duration: 600 }}
+				class="absolute bottom-8 left-8 max-w-[34vw] rounded-lg border border-white/35 bg-black/55 px-6 py-5 shadow-2xl backdrop-blur-xl"
+			>
+				<div class="text-[0.8vmin] tracking-[0.2em] text-purple-100/80 uppercase">Up next</div>
+				<div class="mt-2 truncate text-[5vmin] leading-none font-semibold">
+					{displayState.upNext.singer}
+				</div>
+				{#if displayState.upNext.title}
+					<div class="mt-4 truncate text-[2vmin] text-white/80">{displayState.upNext.title}</div>
+				{/if}
+				{#if displayState.upNext.artist}
+					<div class="mt-1 truncate text-[1.5vmin] text-white/50">{displayState.upNext.artist}</div>
+				{/if}
+			</section>
+		{/key}
 	{/if}
 </main>

@@ -57,6 +57,33 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 };
 
 export const actions: Actions = {
+	manualRequest: async ({ request, locals, params }) => {
+		const eventCode = params.eventCode;
+		const formData = await request.formData();
+		const name = (formData.get('name') as string | null)?.trim();
+		const title = (formData.get('title') as string | null)?.trim();
+		const artist = (formData.get('artist') as string | null)?.trim();
+
+		if (!CODE_REGEX.test(eventCode) || !name || !title || !artist) {
+			return fail(400, { error: 'Missing required fields' });
+		}
+
+		const [eventinfo] = await locals.db.select().from(events).where(eq(events.code, eventCode));
+		if (!eventinfo) {
+			return fail(404, { error: 'Event not found' });
+		}
+
+		await locals.db.insert(requests).values({
+			sessionId: `admin:${eventCode}`,
+			name,
+			title,
+			artist,
+			eventCode,
+		});
+
+		return { success: true };
+	},
+
 	updateStatus: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const id = Number(formData.get('id'));
