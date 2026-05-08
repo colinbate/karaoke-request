@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { enhanceWithoutReset } from '$lib/utils.js';
 
 	let { data } = $props();
 
@@ -69,7 +70,7 @@
 
 		<div class="space-y-4">
 			{#each data.lists as list (list.id)}
-				<details class="group rounded-lg bg-gray-900" open>
+				<details class="group rounded-lg bg-gray-900">
 					<summary class="cursor-pointer list-none p-4 marker:hidden">
 						<div class="flex items-center gap-3">
 							<div class="min-w-0 flex-1">
@@ -112,7 +113,12 @@
 						class="grid gap-4 border-t border-gray-800 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]"
 					>
 						<div class="min-w-0">
-							<form method="POST" action="?/updateList" use:enhance class="space-y-3">
+							<form
+								method="POST"
+								action="?/updateList"
+								use:enhance={enhanceWithoutReset}
+								class="space-y-3"
+							>
 								<input type="hidden" name="id" value={list.id} />
 
 								<input
@@ -178,7 +184,13 @@
 							</div>
 						</div>
 
-						<form method="POST" action="?/addEntries" use:enhance class="space-y-3">
+						<form
+							method="POST"
+							action="?/addEntries"
+							enctype="multipart/form-data"
+							use:enhance
+							class="space-y-3"
+						>
 							<input type="hidden" name="listId" value={list.id} />
 							<label class="block text-sm font-medium text-gray-300" for={`entries-${list.id}`}>
 								Add Entries
@@ -192,6 +204,18 @@
 									: 'Artist name\nAnother artist'}
 								class="w-full rounded bg-gray-800 px-3 py-2 text-sm placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
 							></textarea>
+							{#if list.kind === 'song'}
+								<label class="block text-sm font-medium text-gray-300" for={`playlist-${list.id}`}>
+									Import KaraFun CSV
+								</label>
+								<input
+									id={`playlist-${list.id}`}
+									name="playlistCsv"
+									type="file"
+									accept=".csv,text/csv"
+									class="block w-full rounded bg-gray-800 px-3 py-2 text-sm text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-100 hover:file:bg-gray-600 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+								/>
+							{/if}
 							<button
 								type="submit"
 								class="rounded bg-purple-600 px-3 py-2 text-sm font-medium hover:bg-purple-500"
