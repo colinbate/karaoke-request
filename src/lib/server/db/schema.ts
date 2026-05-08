@@ -22,6 +22,9 @@ export const requests = sqliteTable('requests', {
 	title: text('title').notNull(),
 	artist: text('artist').notNull(),
 	status: text('status').notNull().default('pending').$type<'pending' | 'done'>(),
+	fromRandomList: integer('from_random_list').notNull().default(0),
+	randomListTitle: text('random_list_title'),
+	randomListKind: text('random_list_kind').$type<'song' | 'artist'>(),
 	eventCode: text('event_code')
 		.notNull()
 		.references(() => events.code),
@@ -38,6 +41,7 @@ export const randomLists = sqliteTable('random_lists', {
 	title: text('title').notNull(),
 	note: text('note').notNull().default(''),
 	kind: text('kind').notNull().$type<'song' | 'artist'>(),
+	adminOnly: integer('admin_only', { mode: 'boolean' }).notNull().default(false),
 	createdAt: text('created_at')
 		.notNull()
 		.default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),

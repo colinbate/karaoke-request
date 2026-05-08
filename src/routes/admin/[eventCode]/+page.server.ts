@@ -9,43 +9,90 @@ import {
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { CODE_REGEX } from '$lib/types';
+import { songValue, type RandomPickerList } from '$lib/random-lists';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const eventCode = params.eventCode;
 	if (!CODE_REGEX.test(eventCode)) {
 		error(404, 'Event not found.');
 	}
-	const [pending, done, eventinfo, lists, linkedLists] = await locals.db.batch([
-		locals.db
-			.select()
-			.from(requests)
-			.where(and(eq(requests.eventCode, eventCode), eq(requests.status, 'pending')))
-			.orderBy(requests.createdAt),
-		locals.db
-			.select()
-			.from(requests)
-			.where(and(eq(requests.eventCode, eventCode), eq(requests.status, 'done')))
-			.orderBy(desc(requests.updatedAt)),
-		locals.db.select().from(events).where(eq(events.code, eventCode)),
-		locals.db
-			.select({
-				id: randomLists.id,
-				title: randomLists.title,
-				note: randomLists.note,
-				kind: randomLists.kind,
-				entryCount: sql<number>`COUNT(${randomListEntries.id})`.as('entryCount'),
-			})
-			.from(randomLists)
-			.leftJoin(randomListEntries, eq(randomListEntries.listId, randomLists.id))
-			.groupBy(randomLists.id, randomLists.title, randomLists.note, randomLists.kind)
-			.orderBy(asc(randomLists.title)),
-		locals.db.select().from(eventRandomLists).where(eq(eventRandomLists.eventCode, eventCode)),
-	]);
+	const [pending, done, eventinfo, lists, linkedLists, activeSongListEntries] =
+		await locals.db.batch([
+			locals.db
+				.select()
+				.from(requests)
+				.where(and(eq(requests.eventCode, eventCode), eq(requests.status, 'pending')))
+				.orderBy(requests.createdAt),
+			locals.db
+				.select()
+				.from(requests)
+				.where(and(eq(requests.eventCode, eventCode), eq(requests.status, 'done')))
+				.orderBy(desc(requests.updatedAt)),
+			locals.db.select().from(events).where(eq(events.code, eventCode)),
+			locals.db
+				.select({
+					id: randomLists.id,
+					title: randomLists.title,
+					note: randomLists.note,
+					kind: randomLists.kind,
+					adminOnly: randomLists.adminOnly,
+					entryCount: sql<number>`COUNT(${randomListEntries.id})`.as('entryCount'),
+				})
+				.from(randomLists)
+				.leftJoin(randomListEntries, eq(randomListEntries.listId, randomLists.id))
+				.groupBy(
+					randomLists.id,
+					randomLists.title,
+					randomLists.note,
+					randomLists.kind,
+					randomLists.adminOnly
+				)
+				.orderBy(asc(randomLists.title)),
+			locals.db.select().from(eventRandomLists).where(eq(eventRandomLists.eventCode, eventCode)),
+			locals.db
+				.select({
+					listId: randomLists.id,
+					title: randomLists.title,
+					note: randomLists.note,
+					kind: randomLists.kind,
+					entryTitle: sql`${randomListEntries.title}`.as('entryTitle'),
+					entryArtist: sql`${randomListEntries.artist}`.as('entryArtist'),
+				})
+				.from(eventRandomLists)
+				.innerJoin(randomLists, eq(randomLists.id, eventRandomLists.listId))
+				.innerJoin(randomListEntries, eq(randomListEntries.listId, randomLists.id))
+				.where(and(eq(eventRandomLists.eventCode, eventCode), eq(randomLists.kind, 'song')))
+				.orderBy(
+					asc(randomLists.title),
+					asc(randomListEntries.sortOrder),
+					asc(randomListEntries.id)
+				),
+		]);
 	if (!eventinfo || !eventinfo[0]) {
 		error(404, 'Event not found.');
 	}
 
 	const linkedListIds = new Set(linkedLists.map((link) => link.listId));
+	const adminSongLists: RandomPickerList[] = [];
+	for (const row of activeSongListEntries) {
+		let list = adminSongLists.find((item) => item.id === row.listId);
+		if (!list) {
+			list = {
+				id: row.listId,
+				title: row.title,
+				note: row.note,
+				kind: row.kind,
+				items: [],
+			};
+			adminSongLists.push(list);
+		}
+
+		list.items.push({
+			label: row.entryTitle,
+			value: songValue(row.entryTitle, row.entryArtist ?? ''),
+			detail: row.entryArtist ?? undefined,
+		});
+	}
 
 	return {
 		pending,
@@ -53,6 +100,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		eventinfo: eventinfo[0],
 		requestUrl: new URL(`/event/${eventCode}`, url).toString(),
 		randomLists: lists.map((list) => ({ ...list, active: linkedListIds.has(list.id) })),
+		adminSongLists,
 	};
 };
 

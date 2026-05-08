@@ -1,0 +1,2 @@
+-- Migration number: 0005 	 2026-05-07T00:00:00.000Z
+ALTER TABLE random_lists ADD COLUMN admin_only INTEGER NOT NULL DEFAULT 0;

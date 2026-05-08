@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 	import EventStatus from '$lib/comp/event-status.svelte';
 	import { S, type Song } from '$lib/types';
+	import { randomListBadgeLabel, type RandomListItem } from '$lib/random-lists';
 	import {
 		DISPLAY_CHANNEL_NAME,
 		createDisplayState,
@@ -28,21 +29,49 @@
 
 	let { data } = $props();
 
+	type ManualSong = {
+		title: string;
+		artist: string;
+	};
+
 	const fallbackDisplayState = $derived(createDisplayState(data.eventinfo.code, data.requestUrl));
 	let storedDisplayState = $state<DisplayState | null>(null);
 	let channel: BroadcastChannel | null = null;
 	let songs: Song[] = $state.raw([]);
 	let manualName = $state('');
 	let manualSearch = $state('');
-	let selectedSong = $state<Song | null>(null);
+	let selectedManualSong = $state<ManualSong | null>(null);
 	let manualFormOpen = $state(false);
 	let completedOpen = $state(false);
+	let selectedManualListId = $state<number | null>(null);
+	let listsDialog = $state<HTMLDialogElement>();
 
 	const displayState = $derived(storedDisplayState ?? fallbackDisplayState);
 	const activeListCount = $derived(data.randomLists.filter((list) => list.active).length);
+	const currentSingers = $derived.by(() => {
+		const names: string[] = [];
+		const seen: string[] = [];
+
+		for (const request of [...data.pending, ...data.done]) {
+			const name = request.name.trim();
+			const key = name.toLowerCase();
+			if (name && !seen.includes(key)) {
+				names.push(name);
+				seen.push(key);
+			}
+		}
+
+		return names;
+	});
+	const showSingerChips = $derived(currentSingers.length > 0 && currentSingers.length <= 6);
+	const activeManualList = $derived(
+		data.adminSongLists.find((list) => list.id === selectedManualListId) ??
+			data.adminSongLists[0] ??
+			null
+	);
 	const manualSearchResults = $derived.by(() => {
 		const query = manualSearch.trim().toLowerCase();
-		if (!query || selectedSong) {
+		if (!query || selectedManualSong) {
 			return [];
 		}
 
@@ -54,9 +83,9 @@
 			)
 			.slice(0, 6);
 	});
-	const manualTitle = $derived(selectedSong?.[S.TITLE] ?? '');
-	const manualArtist = $derived(selectedSong?.[S.ARTIST] ?? '');
-	const canAddManualRequest = $derived(!!manualName.trim() && !!selectedSong);
+	const manualTitle = $derived(selectedManualSong?.title ?? '');
+	const manualArtist = $derived(selectedManualSong?.artist ?? '');
+	const canAddManualRequest = $derived(!!manualName.trim() && !!selectedManualSong);
 
 	onMount(() => {
 		const stored = localStorage.getItem(displayStateKey(data.eventinfo.code));
@@ -98,9 +127,58 @@
 		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 	}
 
+	function selectSinger(name: string) {
+		manualName = name;
+	}
+
+	function selectSingerOption(event: Event) {
+		const select = event.currentTarget;
+		if (!(select instanceof HTMLSelectElement) || !select.value) {
+			return;
+		}
+
+		selectSinger(select.value);
+		select.value = '';
+	}
+
+	function formatSong(song: ManualSong) {
+		return `${song.title} - ${song.artist}`;
+	}
+
 	function selectManualSong(song: Song) {
-		selectedSong = song;
-		manualSearch = `${song[S.TITLE]} - ${song[S.ARTIST]}`;
+		const nextSong = { title: song[S.TITLE], artist: song[S.ARTIST] };
+		selectedManualSong = nextSong;
+		manualSearch = formatSong(nextSong);
+	}
+
+	function parseListSong(item: RandomListItem): ManualSong | null {
+		try {
+			const parsed: unknown = JSON.parse(item.value);
+			if (
+				Array.isArray(parsed) &&
+				parsed.length === 2 &&
+				typeof parsed[0] === 'string' &&
+				typeof parsed[1] === 'string' &&
+				parsed[0].trim() &&
+				parsed[1].trim()
+			) {
+				return { title: parsed[0].trim(), artist: parsed[1].trim() };
+			}
+		} catch {
+			return null;
+		}
+
+		return null;
+	}
+
+	function selectManualListSong(item: RandomListItem) {
+		const song = parseListSong(item);
+		if (!song) {
+			return;
+		}
+
+		selectedManualSong = song;
+		manualSearch = formatSong(song);
 	}
 
 	function updateManualSearch(event: Event) {
@@ -110,14 +188,30 @@
 		}
 
 		manualSearch = input.value;
-		if (selectedSong && input.value !== `${selectedSong[S.TITLE]} - ${selectedSong[S.ARTIST]}`) {
-			selectedSong = null;
+		if (selectedManualSong && input.value !== formatSong(selectedManualSong)) {
+			selectedManualSong = null;
 		}
 	}
 
 	function clearManualSong() {
-		selectedSong = null;
+		selectedManualSong = null;
 		manualSearch = '';
+	}
+
+	function openListsDialog() {
+		listsDialog?.showModal();
+	}
+
+	function closeListsDialog() {
+		listsDialog?.close();
+	}
+
+	function randomRequestLabel(request: (typeof data.pending)[number] | (typeof data.done)[number]) {
+		if (!request.fromRandomList || !request.randomListKind || !request.randomListTitle) {
+			return null;
+		}
+
+		return randomListBadgeLabel(request.randomListKind, request.randomListTitle);
 	}
 
 	function resetManualRequest() {
@@ -154,6 +248,7 @@
 			singer: request.name,
 			title: request.title,
 			artist: request.artist,
+			randomLabel: randomRequestLabel(request) ?? undefined,
 		};
 
 		publishDisplayPatch({ upNext });
@@ -211,14 +306,88 @@
 					{data.pending.length} pending · {data.done.length} done · {activeListCount} lists active
 				</div>
 			</div>
-			<a
-				href={resolve(`/admin/lists`)}
+			<button
+				type="button"
+				onclick={openListsDialog}
 				class="shrink-0 rounded border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800"
 			>
 				Lists
-			</a>
+			</button>
 		</div>
 	</header>
+
+	<dialog
+		bind:this={listsDialog}
+		class="m-4 w-[calc(100vw-2rem)] max-w-lg rounded-lg border border-gray-700 bg-gray-900 p-0 text-gray-100 backdrop:bg-black/60 sm:m-auto sm:w-full"
+	>
+		<div class="flex items-center justify-between gap-3 border-b border-gray-800 px-4 py-3">
+			<h2 class="font-semibold">Event Lists</h2>
+			<button
+				type="button"
+				onclick={closeListsDialog}
+				aria-label="Close lists"
+				class="grid size-8 place-items-center rounded text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+			>
+				<X class="size-5" />
+			</button>
+		</div>
+
+		<div class="max-h-[70dvh] overflow-y-auto p-4">
+			<div class="mb-3 flex items-center justify-between gap-3">
+				<div class="text-sm text-gray-400">{activeListCount} active for this event</div>
+				<a
+					href={resolve('/admin/lists')}
+					class="shrink-0 rounded bg-gray-800 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-700"
+				>
+					Manage lists
+				</a>
+			</div>
+
+			<div class="space-y-2">
+				{#each data.randomLists as list (list.id)}
+					<form method="POST" action={list.active ? '?/unlinkList' : '?/linkList'} use:enhance>
+						<input type="hidden" name="listId" value={list.id} />
+						<button
+							type="submit"
+							class={[
+								'flex w-full items-center gap-3 rounded border px-3 py-2 text-left transition-colors',
+								list.active
+									? 'border-purple-600 bg-purple-950/40'
+									: 'border-gray-800 bg-gray-950/60 hover:bg-gray-800/70',
+							]}
+						>
+							<span
+								class={[
+									'grid size-5 shrink-0 place-items-center rounded border',
+									list.active ? 'border-purple-400 bg-purple-600' : 'border-gray-600',
+								]}
+								aria-hidden="true"
+							>
+								{#if list.active}
+									<CircleCheckBig class="size-4" />
+								{/if}
+							</span>
+							<span class="min-w-0 flex-1">
+								<span class="block truncate text-sm font-medium">{list.title}</span>
+								<span class="block truncate text-xs text-gray-500">
+									{list.entryCount} entries · {list.kind === 'song' ? 'Songs' : 'Artists'}
+									{#if list.adminOnly}
+										· Admin only
+									{/if}
+								</span>
+							</span>
+						</button>
+					</form>
+				{:else}
+					<p
+						class="rounded border border-gray-800 bg-gray-950/60 p-4 text-center text-sm text-gray-500"
+					>
+						No lists yet.
+					</p>
+				{/each}
+			</div>
+		</div>
+	</dialog>
 
 	<section class="shrink-0 space-y-3 border-b border-gray-800 bg-gray-950/95 px-4 py-3">
 		<div class="flex items-start justify-between gap-3">
@@ -344,16 +513,52 @@
 
 					<label class="block">
 						<span class="mb-1 block text-xs text-gray-400">Singer</span>
-						<input
-							name="name"
-							type="text"
-							data-1p-ignore
-							bind:value={manualName}
-							autocomplete="off"
-							placeholder="Who is singing?"
-							class="w-full rounded border-gray-700 bg-gray-800 text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500"
-						/>
+						<div
+							class={currentSingers.length > 6
+								? 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_10rem]'
+								: ''}
+						>
+							<input
+								name="name"
+								type="text"
+								data-1p-ignore
+								bind:value={manualName}
+								autocomplete="off"
+								placeholder="Who is singing?"
+								class="w-full rounded border-gray-700 bg-gray-800 text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500"
+							/>
+							{#if currentSingers.length > 6}
+								<select
+									aria-label="Current singers"
+									onchange={selectSingerOption}
+									class="rounded border-gray-700 bg-gray-800 text-sm text-gray-200 focus:border-purple-500 focus:ring-purple-500"
+								>
+									<option value="">Current singers</option>
+									{#each currentSingers as singer (singer.toLowerCase())}
+										<option value={singer}>{singer}</option>
+									{/each}
+								</select>
+							{/if}
+						</div>
 					</label>
+					{#if showSingerChips}
+						<div class="flex flex-wrap gap-2">
+							{#each currentSingers as singer (singer.toLowerCase())}
+								<button
+									type="button"
+									onclick={() => selectSinger(singer)}
+									class={[
+										'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+										manualName.trim().toLowerCase() === singer.toLowerCase()
+											? 'border-purple-500 bg-purple-700 text-white'
+											: 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700',
+									]}
+								>
+									{singer}
+								</button>
+							{/each}
+						</div>
+					{/if}
 
 					<div class="relative">
 						<label class="block">
@@ -367,7 +572,7 @@
 									placeholder="Search title or artist"
 									class="min-w-0 flex-1 rounded border-gray-700 bg-gray-800 text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500"
 								/>
-								{#if selectedSong}
+								{#if selectedManualSong}
 									<button
 										type="button"
 										onclick={clearManualSong}
@@ -398,10 +603,51 @@
 						{/if}
 					</div>
 
-					{#if selectedSong}
+					{#if data.adminSongLists.length > 0}
+						<div class="rounded border border-gray-800 bg-gray-950/50 p-3">
+							<div class="mb-2 flex items-center gap-2">
+								<select
+									aria-label="Active song list"
+									value={activeManualList?.id ?? ''}
+									onchange={(event) => {
+										const select = event.currentTarget;
+										if (select instanceof HTMLSelectElement) {
+											selectedManualListId = Number(select.value);
+										}
+									}}
+									class="min-w-0 flex-1 rounded border-gray-700 bg-gray-800 text-sm text-gray-200 focus:border-purple-500 focus:ring-purple-500"
+								>
+									{#each data.adminSongLists as list (list.id)}
+										<option value={list.id}>{list.title}</option>
+									{/each}
+								</select>
+								<span class="shrink-0 text-xs text-gray-500">
+									{activeManualList?.items.length ?? 0} songs
+								</span>
+							</div>
+							{#if activeManualList}
+								<div class="max-h-40 space-y-1 overflow-y-auto pr-1">
+									{#each activeManualList.items as item, i (i)}
+										<button
+											type="button"
+											onclick={() => selectManualListSong(item)}
+											class="block w-full rounded px-2 py-1.5 text-left hover:bg-gray-800"
+										>
+											<span class="block truncate text-sm font-medium">{item.label}</span>
+											{#if item.detail}
+												<span class="block truncate text-xs text-gray-500">{item.detail}</span>
+											{/if}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/if}
+
+					{#if selectedManualSong}
 						<div class="rounded border border-purple-900/60 bg-purple-950/30 px-3 py-2 text-sm">
-							<div class="truncate font-medium">{selectedSong[S.TITLE]}</div>
-							<div class="truncate text-xs text-purple-200/70">{selectedSong[S.ARTIST]}</div>
+							<div class="truncate font-medium">{selectedManualSong.title}</div>
+							<div class="truncate text-xs text-purple-200/70">{selectedManualSong.artist}</div>
 						</div>
 					{/if}
 
@@ -424,16 +670,26 @@
 		{:else}
 			<div class="space-y-3">
 				{#each data.pending as req (req.id)}
-					<article class="flex justify-between rounded-lg border border-gray-800 bg-gray-900 p-3">
-						<div class="min-w-0">
-							<div class="truncate font-medium">{req.title}</div>
+					{@const randomLabel = randomRequestLabel(req)}
+					<article class="flex gap-3 rounded-lg border border-gray-800 bg-gray-900 p-3">
+						<div class="min-w-0 flex-1">
+							<div class="flex min-w-0 items-center gap-2">
+								<div class="truncate font-medium">{req.title}</div>
+								{#if randomLabel}
+									<span
+										class="shrink-0 rounded bg-cyan-900/70 px-1.5 py-0.5 text-[0.65rem] font-medium text-cyan-100"
+									>
+										{randomLabel}
+									</span>
+								{/if}
+							</div>
 							<div class="truncate text-sm text-gray-400">{req.artist}</div>
 							<div class="mt-1 truncate text-xs text-gray-500">
 								{req.name} · {formatTime(req.createdAt)}
 							</div>
 						</div>
 
-						<div class=" flex flex-row gap-2">
+						<div class="flex shrink-0 flex-row gap-2">
 							<CopyText text={`${req.title} ${req.artist}`} />
 							<button
 								type="button"
@@ -483,9 +739,19 @@
 				{:else}
 					<div class="space-y-2">
 						{#each data.done as req (req.id)}
+							{@const randomLabel = randomRequestLabel(req)}
 							<article class="flex items-center gap-2 rounded bg-gray-900/60 p-2 text-sm">
 								<div class="min-w-0 flex-1">
-									<div class="truncate text-gray-300">{req.title}</div>
+									<div class="flex min-w-0 items-center gap-2">
+										<div class="truncate text-gray-300">{req.title}</div>
+										{#if randomLabel}
+											<span
+												class="shrink-0 rounded bg-cyan-950 px-1.5 py-0.5 text-[0.6rem] font-medium text-cyan-100"
+											>
+												{randomLabel}
+											</span>
+										{/if}
+									</div>
 									<div class="truncate text-xs text-gray-500">{req.artist} · {req.name}</div>
 								</div>
 								<form method="POST" action="?/updateStatus" use:enhance>

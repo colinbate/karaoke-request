@@ -9,6 +9,12 @@
 	import RandomPickerDialog from '$lib/comp/random-picker-dialog.svelte';
 	import type { RandomListItem, RandomPickerList } from '$lib/random-lists';
 
+	type RandomSourceFormState = {
+		listId: number;
+		listKind: 'song' | 'artist';
+		rolledArtist?: string;
+	};
+
 	let { data, form }: PageProps = $props();
 
 	let search = $state('');
@@ -19,6 +25,8 @@
 	let namePrompt = $state(false);
 	let activePickerList = $state<RandomPickerList | null>(null);
 	let randomSongValue = $state('');
+	let randomSongSource = $state<RandomSourceFormState | null>(null);
+	let artistRollSource = $state<RandomSourceFormState | null>(null);
 	let styles: string[] = $state.raw([]);
 	let songs: Song[] = $state.raw([]);
 	let loading = $state(true);
@@ -170,11 +178,20 @@
 
 		if (list?.kind === 'song') {
 			randomSongValue = item.value;
+			randomSongSource = {
+				listId: list.id,
+				listKind: list.kind,
+			};
 			setTimeout(() => randomSongForm?.requestSubmit());
 			return;
 		}
 
 		if (list?.kind === 'artist') {
+			artistRollSource = {
+				listId: list.id,
+				listKind: list.kind,
+				rolledArtist: item.value,
+			};
 			search = item.value;
 			selectedStyle = '';
 			setTimeout(() => ffield?.focus());
@@ -351,10 +368,19 @@
 		<form method="POST" use:enhance bind:this={randomSongForm} class="hidden">
 			<input type="hidden" name="name" value={userName} />
 			<input type="hidden" name="song" value={randomSongValue} />
+			{#if randomSongSource}
+				<input type="hidden" name="randomListId" value={randomSongSource.listId} />
+				<input type="hidden" name="randomListKind" value={randomSongSource.listKind} />
+			{/if}
 		</form>
 
 		<form method="POST" use:enhance class="flex-1">
 			<input type="hidden" name="name" value={userName} />
+			{#if artistRollSource}
+				<input type="hidden" name="randomListId" value={artistRollSource.listId} />
+				<input type="hidden" name="randomListKind" value={artistRollSource.listKind} />
+				<input type="hidden" name="randomRolledArtist" value={artistRollSource.rolledArtist} />
+			{/if}
 			<div class="min-h-0 overflow-y-auto">
 				{#if loading}
 					<div class="flex h-48 items-center justify-center text-purple-300">

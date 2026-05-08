@@ -163,7 +163,7 @@
 	{/if}
 
 	{#if displayState.upNext}
-		{#key `${displayState.upNext.singer}|${displayState.upNext.title}|${displayState.upNext.artist}`}
+		{#key `${displayState.upNext.singer}|${displayState.upNext.title}|${displayState.upNext.artist}|${displayState.upNext.randomLabel}`}
 			<section
 				transition:fly|global={{ opacity: 0, y: '100%', duration: 600 }}
 				class="absolute bottom-8 left-8 max-w-[34vw] rounded-lg border border-white/35 bg-black/55 px-6 py-5 shadow-2xl backdrop-blur-xl"
@@ -177,6 +177,13 @@
 				{/if}
 				{#if displayState.upNext.artist}
 					<div class="mt-1 truncate text-[1.5vmin] text-white/50">{displayState.upNext.artist}</div>
+				{/if}
+				{#if displayState.upNext.randomLabel}
+					<div
+						class="mt-4 inline-flex max-w-full rounded bg-cyan-400/15 px-3 py-1 text-[1vmin] font-semibold tracking-[0.12em] text-cyan-100 uppercase"
+					>
+						<span class="truncate">{displayState.upNext.randomLabel}</span>
+					</div>
 				{/if}
 			</section>
 		{/key}

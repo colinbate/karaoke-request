@@ -17,3 +17,7 @@ export type RandomPickerList = {
 export function songValue(title: string, artist: string) {
 	return JSON.stringify([title, artist]);
 }
+
+export function randomListBadgeLabel(kind: RandomListKind, title: string) {
+	return kind === 'song' ? `Random song: ${title}` : `Random artist: ${title}`;
+}

@@ -7,6 +7,7 @@
 	let newTitle = $state('');
 	let newNote = $state('');
 	let newKind = $state<'song' | 'artist'>('song');
+	let newAdminOnly = $state(false);
 </script>
 
 <svelte:head>
@@ -24,7 +25,7 @@
 
 		<form method="POST" action="?/createList" use:enhance class="mb-6 rounded-lg bg-gray-900 p-4">
 			<h2 class="mb-3 font-medium">Create List</h2>
-			<div class="grid gap-3 md:grid-cols-[1fr_auto_auto]">
+			<div class="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
 				<input
 					type="text"
 					name="title"
@@ -41,6 +42,15 @@
 					<option value="song">Songs</option>
 					<option value="artist">Artists</option>
 				</select>
+				<label class="flex items-center gap-2 rounded bg-gray-800 px-3 py-2 text-sm text-gray-300">
+					<input
+						type="checkbox"
+						name="adminOnly"
+						bind:checked={newAdminOnly}
+						class="rounded border-gray-700 bg-gray-900 text-purple-600 focus:ring-purple-500"
+					/>
+					Admin only
+				</label>
 				<button
 					type="submit"
 					class="rounded bg-purple-600 px-4 py-2 font-medium hover:bg-purple-500"
@@ -73,6 +83,11 @@
 									>
 										{list.kind === 'song' ? 'Songs' : 'Artists'}
 									</span>
+									{#if list.adminOnly}
+										<span class="shrink-0 rounded bg-amber-700 px-2 py-1 text-xs font-medium">
+											Admin only
+										</span>
+									{/if}
 								</div>
 								<div class="mt-1 truncate text-sm text-gray-500">
 									{list.entries.length} entries{#if list.note}
@@ -112,6 +127,15 @@
 									class="w-full rounded bg-gray-800 px-3 py-2 text-sm text-gray-300 placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
 									placeholder="Admin note">{list.note}</textarea
 								>
+								<label class="flex items-center gap-2 text-sm text-gray-300">
+									<input
+										type="checkbox"
+										name="adminOnly"
+										checked={list.adminOnly}
+										class="rounded border-gray-700 bg-gray-800 text-purple-600 focus:ring-purple-500"
+									/>
+									Admin only
+								</label>
 								<div class="flex gap-2">
 									<button
 										type="submit"

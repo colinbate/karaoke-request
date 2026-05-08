@@ -51,12 +51,13 @@ export const actions = {
 		const title = (formData.get('title') as string)?.trim();
 		const note = ((formData.get('note') as string) ?? '').trim();
 		const kind = formData.get('kind');
+		const adminOnly = formData.get('adminOnly') === 'on';
 
 		if (!title || !isRandomListKind(kind)) {
 			return fail(400, { error: 'Title and type are required' });
 		}
 
-		await locals.db.insert(randomLists).values({ title, note, kind });
+		await locals.db.insert(randomLists).values({ title, note, kind, adminOnly });
 		return { success: true };
 	},
 
@@ -65,6 +66,7 @@ export const actions = {
 		const id = Number(formData.get('id'));
 		const title = (formData.get('title') as string)?.trim();
 		const note = ((formData.get('note') as string) ?? '').trim();
+		const adminOnly = formData.get('adminOnly') === 'on';
 
 		if (!id || !title) {
 			return fail(400, { error: 'List and title are required' });
@@ -72,7 +74,7 @@ export const actions = {
 
 		await locals.db
 			.update(randomLists)
-			.set({ title, note, updatedAt: new Date().toISOString() })
+			.set({ title, note, adminOnly, updatedAt: new Date().toISOString() })
 			.where(eq(randomLists.id, id));
 
 		return { success: true };
