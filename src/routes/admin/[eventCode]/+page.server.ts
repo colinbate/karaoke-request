@@ -55,8 +55,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 					title: randomLists.title,
 					note: randomLists.note,
 					kind: randomLists.kind,
-					entryTitle: sql`${randomListEntries.title}`.as('entryTitle'),
-					entryArtist: sql`${randomListEntries.artist}`.as('entryArtist'),
+					entryTitle: sql<string>`${randomListEntries.title}`.as('entryTitle'),
+					entryArtist: sql<string | null>`${randomListEntries.artist}`.as('entryArtist'),
 				})
 				.from(eventRandomLists)
 				.innerJoin(randomLists, eq(randomLists.id, eventRandomLists.listId))

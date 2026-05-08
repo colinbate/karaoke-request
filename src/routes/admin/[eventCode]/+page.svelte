@@ -65,9 +65,7 @@
 	});
 	const showSingerChips = $derived(currentSingers.length > 0 && currentSingers.length <= 6);
 	const activeManualList = $derived(
-		data.adminSongLists.find((list) => list.id === selectedManualListId) ??
-			data.adminSongLists[0] ??
-			null
+		data.adminSongLists.find((list) => list.id === selectedManualListId) ?? null
 	);
 	const manualSearchResults = $derived.by(() => {
 		const query = manualSearch.trim().toLowerCase();
@@ -217,7 +215,15 @@
 	function resetManualRequest() {
 		manualName = '';
 		clearManualSong();
+		selectedManualListId = null;
 		manualFormOpen = false;
+	}
+
+	function toggleManualForm() {
+		manualFormOpen = !manualFormOpen;
+		if (manualFormOpen) {
+			selectedManualListId = null;
+		}
 	}
 
 	function persistDisplayState(nextState: DisplayState) {
@@ -479,7 +485,7 @@
 			<h2 class="text-sm font-medium tracking-wide text-purple-300 uppercase">Pending Requests</h2>
 			<button
 				type="button"
-				onclick={() => (manualFormOpen = !manualFormOpen)}
+				onclick={toggleManualForm}
 				aria-label={manualFormOpen ? 'Close add request form' : 'Add request'}
 				aria-expanded={manualFormOpen}
 				class={[
@@ -612,18 +618,21 @@
 									onchange={(event) => {
 										const select = event.currentTarget;
 										if (select instanceof HTMLSelectElement) {
-											selectedManualListId = Number(select.value);
+											selectedManualListId = select.value ? Number(select.value) : null;
 										}
 									}}
 									class="min-w-0 flex-1 rounded border-gray-700 bg-gray-800 text-sm text-gray-200 focus:border-purple-500 focus:ring-purple-500"
 								>
+									<option value="">Choose a list</option>
 									{#each data.adminSongLists as list (list.id)}
 										<option value={list.id}>{list.title}</option>
 									{/each}
 								</select>
-								<span class="shrink-0 text-xs text-gray-500">
-									{activeManualList?.items.length ?? 0} songs
-								</span>
+								{#if activeManualList}
+									<span class="shrink-0 text-xs text-gray-500">
+										{activeManualList.items.length} songs
+									</span>
+								{/if}
 							</div>
 							{#if activeManualList}
 								<div class="max-h-40 space-y-1 overflow-y-auto pr-1">
